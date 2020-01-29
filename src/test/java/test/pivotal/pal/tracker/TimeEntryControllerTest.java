@@ -1,5 +1,8 @@
 package test.pivotal.pal.tracker;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.pivotal.pal.tracker.TimeEntry;
 import io.pivotal.pal.tracker.TimeEntryController;
 import io.pivotal.pal.tracker.TimeEntryRepository;
@@ -20,11 +23,22 @@ import static org.mockito.Mockito.*;
 public class TimeEntryControllerTest {
     private TimeEntryRepository timeEntryRepository;
     private TimeEntryController controller;
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     public void setUp() {
         timeEntryRepository = mock(TimeEntryRepository.class);
-        controller = new TimeEntryController(timeEntryRepository);
+        meterRegistry = mock(MeterRegistry.class);
+
+        DistributionSummary distributionSummary = mock(DistributionSummary.class);
+        Counter counter = mock(Counter.class);
+
+        doReturn(distributionSummary).when(meterRegistry).summary("timeEntry.summary");
+        doReturn(counter).when(meterRegistry).counter("timeEntry.actionCounter");
+
+        controller = new TimeEntryController(
+                timeEntryRepository,
+                meterRegistry);
     }
 
     @Test
@@ -36,8 +50,8 @@ public class TimeEntryControllerTest {
         long timeEntryId = 1L;
         TimeEntry expectedResult = new TimeEntry(timeEntryId, projectId, userId, LocalDate.parse("2017-01-08"), 8);
         doReturn(expectedResult)
-            .when(timeEntryRepository)
-            .create(any(TimeEntry.class));
+                .when(timeEntryRepository)
+                .create(any(TimeEntry.class));
 
         ResponseEntity response = controller.create(timeEntryToCreate);
 
@@ -53,8 +67,8 @@ public class TimeEntryControllerTest {
         long userId = 456L;
         TimeEntry expected = new TimeEntry(timeEntryId, projectId, userId, LocalDate.parse("2017-01-08"), 8);
         doReturn(expected)
-            .when(timeEntryRepository)
-            .find(timeEntryId);
+                .when(timeEntryRepository)
+                .find(timeEntryId);
 
         ResponseEntity<TimeEntry> response = controller.read(timeEntryId);
 
@@ -67,8 +81,8 @@ public class TimeEntryControllerTest {
     public void testRead_NotFound() {
         long nonExistentTimeEntryId = 1L;
         doReturn(null)
-            .when(timeEntryRepository)
-            .find(nonExistentTimeEntryId);
+                .when(timeEntryRepository)
+                .find(nonExistentTimeEntryId);
 
         ResponseEntity<TimeEntry> response = controller.read(nonExistentTimeEntryId);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -77,8 +91,8 @@ public class TimeEntryControllerTest {
     @Test
     public void testList() {
         List<TimeEntry> expected = asList(
-            new TimeEntry(1L, 123L, 456L, LocalDate.parse("2017-01-08"), 8),
-            new TimeEntry(2L, 789L, 321L, LocalDate.parse("2017-01-07"), 4)
+                new TimeEntry(1L, 123L, 456L, LocalDate.parse("2017-01-08"), 8),
+                new TimeEntry(2L, 789L, 321L, LocalDate.parse("2017-01-07"), 4)
         );
         doReturn(expected).when(timeEntryRepository).list();
 
@@ -96,8 +110,8 @@ public class TimeEntryControllerTest {
         long userId = 654L;
         TimeEntry expected = new TimeEntry(timeEntryId, projectId, userId, LocalDate.parse("2017-01-07"), 4);
         doReturn(expected)
-            .when(timeEntryRepository)
-            .update(eq(timeEntryId), any(TimeEntry.class));
+                .when(timeEntryRepository)
+                .update(eq(timeEntryId), any(TimeEntry.class));
 
         ResponseEntity response = controller.update(timeEntryId, expected);
 
@@ -110,8 +124,8 @@ public class TimeEntryControllerTest {
     public void testUpdate_NotFound() {
         long nonExistentTimeEntryId = 1L;
         doReturn(null)
-            .when(timeEntryRepository)
-            .update(eq(nonExistentTimeEntryId), any(TimeEntry.class));
+                .when(timeEntryRepository)
+                .update(eq(nonExistentTimeEntryId), any(TimeEntry.class));
 
         ResponseEntity response = controller.update(nonExistentTimeEntryId, new TimeEntry());
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
